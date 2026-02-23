@@ -1,0 +1,150 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CLIENT
+  WORKER
+  ADMIN
+}
+
+enum RequestStatus {
+  PENDING       // Esperando respuesta del trabajador
+  ACCEPTED      // Trabajador aceptó
+  REJECTED      // Trabajador rechazó
+  CONFIRMED     // Confirmado (pasó la regla de 48hs)
+  COMPLETED     // Trabajo realizado
+  CANCELLED     // Cancelado por alguna de las partes
+  EXPIRED       // No respondido a tiempo
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String?
+  phone         String?
+  fullName      String
+  avatarUrl     String?
+  role          Role     @default(CLIENT)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workerProfile   WorkerProfile?
+  sentRequests    ServiceRequest[] @relation("ClientRequests")
+  reviewsGiven    Review[]         @relation("ReviewsGiven")
+  reviewsReceived Review[]         @relation("ReviewsReceived")
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+model WorkerProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id])
+  bio           String?
+  categories    Category[]
+  coverageZones String[]          // Array de strings (barrios/zonas)
+  isVerified    Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  ratingAvg     Float    @default(0)
+  totalReviews  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  availability  AvailabilitySlot[]
+  requests      ServiceRequest[]   @relation("WorkerRequests")
+
+  @@map("worker_profiles")
+}
+
+model Category {
+  id      String          @id @default(cuid())
+  name    String          @unique  // "Electricista", "Plomero", etc.
+  slug    String          @unique
+  icon    String?
+  workers WorkerProfile[]
+
+  @@map("categories")
+}
+
+// Disponibilidad recurrente semanal
+model AvailabilitySlot {
+  id          String        @id @default(cuid())
+  workerId    String
+  worker      WorkerProfile @relation(fields: [workerId], references: [id])
+  dayOfWeek   Int           // 0=Dom, 1=Lun, ..., 6=Sab
+  startTime   String        // "09:00"
+  endTime     String        // "18:00"
+  createdAt   DateTime      @default(now())
+
+  @@map("availability_slots")
+}
+
+// Excepciones: días bloqueados puntualmente
+model AvailabilityBlock {
+  id          String   @id @default(cuid())
+  workerId    String
+  blockedDate DateTime @db.Date
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@map("availability_blocks")
+}
+
+model ServiceRequest {
+  id                    String        @id @default(cuid())
+  clientId              String
+  client                User          @relation("ClientRequests", fields: [clientId], references: [id])
+  workerId              String
+  worker                WorkerProfile @relation("WorkerRequests", fields: [workerId], references: [id])
+  categoryId            String
+  description           String
+  attachments           String[]      // URLs de imágenes
+  requestedDate         DateTime      @db.Date
+  requestedTimeSlot     String        // "09:00-11:00"
+  status                RequestStatus @default(PENDING)
+  confirmationDeadline  DateTime      // Auto: requestedDate - 48hs
+  workerNotes           String?       // Nota del trabajador al aceptar/rechazar
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  review Review?
+
+  @@map("service_requests")
+}
+
+model Review {
+  id          String         @id @default(cuid())
+  requestId   String         @unique
+  request     ServiceRequest @relation(fields: [requestId], references: [id])
+  reviewerId  String
+  reviewer    User           @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  revieweeId  String
+  reviewee    User           @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  rating      Int            // 1-5
+  comment     String?
+  createdAt   DateTime       @default(now())
+
+  @@map("reviews")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // "REQUEST_RECEIVED", "REQUEST_ACCEPTED", etc.
+  payload   Json     // Datos extra flexibles
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
