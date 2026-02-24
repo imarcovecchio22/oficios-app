@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import authOptions from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { sendNewRequestEmail } from "@/services/notification.service"
 
 const createRequestSchema = z.object({
   workerId: z.string(),
@@ -89,5 +90,33 @@ export async function POST(req: Request) {
     },
   })
 
-  return NextResponse.json({ id: request.id }, { status: 201 })
+  
+const workerUser = await prisma.user.findUnique({
+  where: { id: worker.userId },
+  select: { email: true, fullName: true },
+})
+
+const clientUser = await prisma.user.findUnique({
+  where: { id: session.user.id },
+  select: { fullName: true },
+})
+
+if (workerUser && clientUser) {
+  try {
+    await sendNewRequestEmail({
+      workerEmail: workerUser.email,
+      workerName: workerUser.fullName,
+      clientName: clientUser.fullName,
+      requestedDate: jobDate,
+      requestedTimeSlot,
+      description,
+      requestId: request.id,
+    })
+  } catch (emailError) {
+    console.error("[EMAIL_ERROR]", emailError)
+  }
+}
+
+return NextResponse.json({ id: request.id }, { status: 201 })
+
 }
