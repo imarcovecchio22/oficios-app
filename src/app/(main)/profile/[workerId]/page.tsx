@@ -16,15 +16,24 @@ export default async function WorkerProfilePage({ params }: { params: Promise<{ 
   const session = await getServerSession(authOptions)
 
   const worker = await prisma.workerProfile.findUnique({
-    where: { id: workerId },
-    include: {
-      user: { select: { fullName: true, avatarUrl: true, email: true } },
-      categories: true,
-      availability: { orderBy: { dayOfWeek: "asc" } },
-    },
-  })
+  where: { id: workerId },
+  include: {
+    user: { select: { fullName: true, avatarUrl: true, email: true, id: true } },
+    categories: true,
+    availability: { orderBy: { dayOfWeek: "asc" } },
+  },
+})
 
-  if (!worker || !worker.isActive) notFound()
+if (!worker || !worker.isActive) notFound()
+
+const reviews = await prisma.review.findMany({
+  where: { revieweeId: worker.user.id },
+  include: {
+    reviewer: { select: { fullName: true } },
+  },
+  orderBy: { createdAt: "desc" },
+  take: 10,
+})
 
   const initials = worker.user.fullName
     .split(" ")
@@ -100,6 +109,44 @@ export default async function WorkerProfilePage({ params }: { params: Promise<{ 
           </CardContent>
         </Card>
       )}
+
+      {/* Reviews */}
+{reviews.length > 0 && (
+  <Card className="mb-6">
+    <CardContent className="p-6">
+      <h2 className="font-semibold text-slate-900 mb-4">
+        Reseñas ({reviews.length})
+      </h2>
+      <div className="space-y-4">
+        {reviews.map((review) => (
+          <div key={review.id} className="border-b border-slate-100 last:border-0 pb-4 last:pb-0">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-medium text-sm text-slate-700">
+                {review.reviewer.fullName}
+              </span>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: review.rating }).map((_, i) => (
+                  <span key={i} className="text-yellow-400 text-sm">★</span>
+                ))}
+                {Array.from({ length: 5 - review.rating }).map((_, i) => (
+                  <span key={i} className="text-slate-200 text-sm">★</span>
+                ))}
+              </div>
+            </div>
+            {review.comment && (
+              <p className="text-sm text-slate-600 leading-relaxed">{review.comment}</p>
+            )}
+            <p className="text-xs text-slate-400 mt-1">
+              {new Date(review.createdAt).toLocaleDateString("es-AR", {
+                day: "numeric", month: "long", year: "numeric"
+              })}
+            </p>
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+)}
 
       {/* CTA */}
       <Card>
