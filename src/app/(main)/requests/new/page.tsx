@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -28,7 +28,7 @@ const TIME_SLOTS = [
   "18:00 - 20:00",
 ]
 
-export default function NewRequestPage() {
+function NewRequestForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const workerId = searchParams.get("workerId")
@@ -66,7 +66,6 @@ export default function NewRequestPage() {
     router.push(`/requests/${id}?sent=true`)
   }
 
-  // Fecha mínima: mañana
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   const minDate = tomorrow.toISOString().split("T")[0]
@@ -92,21 +91,14 @@ export default function NewRequestPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-
-            {/* Fecha */}
             <div className="space-y-2">
               <Label>Fecha</Label>
-              <Input
-                type="date"
-                min={minDate}
-                {...register("requestedDate")}
-              />
+              <Input type="date" min={minDate} {...register("requestedDate")} />
               {errors.requestedDate && (
                 <p className="text-sm text-red-500">{errors.requestedDate.message}</p>
               )}
             </div>
 
-            {/* Horario */}
             <div className="space-y-2">
               <Label>Horario preferido</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -133,7 +125,6 @@ export default function NewRequestPage() {
               )}
             </div>
 
-            {/* Descripción */}
             <div className="space-y-2">
               <Label>Descripción del trabajo</Label>
               <Textarea
@@ -157,5 +148,22 @@ export default function NewRequestPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// El export default envuelve todo en Suspense — esto es lo que requiere Next.js 15
+export default function NewRequestPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-xl mx-auto">
+        <Card>
+          <CardContent className="p-6 text-center text-slate-400">
+            Cargando...
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <NewRequestForm />
+    </Suspense>
   )
 }
