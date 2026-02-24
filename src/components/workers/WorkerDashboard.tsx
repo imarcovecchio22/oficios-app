@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 type Request = {
   id: string
@@ -62,6 +63,14 @@ export default function WorkerDashboard({ worker, requests }: { worker: Worker; 
   return (
     <div>
       {/* Header */}
+      <div className="flex gap-3">
+  <Button variant="outline" asChild>
+    <Link href="/profile/edit">Editar perfil</Link>
+  </Button>
+  <Button variant="outline" asChild>
+    <Link href="/agenda">Mi agenda</Link>
+  </Button>
+</div>
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Mi panel</h1>
