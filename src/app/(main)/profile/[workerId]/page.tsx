@@ -65,7 +65,7 @@ export default async function WorkerProfilePage({ params }: { params: Promise<{ 
               </div>
 
               <div className="flex flex-wrap gap-2 mt-3">
-                {worker.categories.map(cat => (
+                {worker.categories.map((cat: { id: string; name: string; icon: string | null }) => (
                   <Badge key={cat.id} variant="secondary">
                     {cat.icon} {cat.name}
                   </Badge>
@@ -90,7 +90,7 @@ export default async function WorkerProfilePage({ params }: { params: Promise<{ 
           <CardContent className="p-6">
             <h2 className="font-semibold text-slate-900 mb-4">Disponibilidad</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {worker.availability.map(slot => (
+              {worker.availability.map((slot: { id: string; dayOfWeek: number; startTime: string; endTime: string }) => (
                 <div key={slot.id} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2">
                   <span className="font-medium w-8">{DAYS[slot.dayOfWeek]}</span>
                   <span className="text-slate-400">{slot.startTime} - {slot.endTime}</span>
