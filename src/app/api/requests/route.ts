@@ -11,6 +11,51 @@ const createRequestSchema = z.object({
   requestedTimeSlot: z.string(),
 })
 
+export async function GET(req: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+
+  const { searchParams } = new URL(req.url)
+  const status = searchParams.get("status")
+
+  if (session.user.role === "WORKER") {
+    const worker = await prisma.workerProfile.findUnique({
+      where: { userId: session.user.id },
+    })
+    if (!worker) return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 })
+
+    const requests = await prisma.serviceRequest.findMany({
+      where: {
+        workerId: worker.id,
+        ...(status && { status: status as any }),
+      },
+      include: {
+        client: { select: { fullName: true, email: true, phone: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    })
+    return NextResponse.json(requests)
+  }
+
+  if (session.user.role === "CLIENT") {
+    const requests = await prisma.serviceRequest.findMany({
+      where: {
+        clientId: session.user.id,
+        ...(status && { status: status as any }),
+      },
+      include: {
+        worker: {
+          include: { user: { select: { fullName: true } } },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    })
+    return NextResponse.json(requests)
+  }
+
+  return NextResponse.json([])
+}
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
@@ -22,10 +67,12 @@ export async function POST(req: Request) {
 
   const { workerId, description, requestedDate, requestedTimeSlot } = parsed.data
 
-  const worker = await prisma.workerProfile.findUnique({ where: { id: workerId } })
+  const worker = await prisma.workerProfile.findUnique({
+    where: { id: workerId },
+    include: { categories: true },
+  })
   if (!worker) return NextResponse.json({ error: "Trabajador no encontrado" }, { status: 404 })
 
-  // Calcular deadline de confirmación: fecha del trabajo - 48hs
   const jobDate = new Date(requestedDate)
   const confirmationDeadline = new Date(jobDate.getTime() - 48 * 60 * 60 * 1000)
 
@@ -33,7 +80,7 @@ export async function POST(req: Request) {
     data: {
       clientId: session.user.id,
       workerId: worker.id,
-      categoryId: worker.categories?.[0]?.id ?? "",
+      categoryId: worker.categories[0]?.id ?? "",
       description,
       requestedDate: jobDate,
       requestedTimeSlot,
@@ -44,4 +91,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ id: request.id }, { status: 201 })
 }
-
