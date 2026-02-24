@@ -4,6 +4,7 @@ import { Resend } from "resend"
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const FROM = "onboarding@resend.dev"
+const DEV_EMAIL = "imarcovecchio22@gmail.com" 
 const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
 
 // ── Email al worker cuando recibe una nueva solicitud ──
@@ -30,7 +31,7 @@ export async function sendNewRequestEmail({
 
   await resend.emails.send({
     from: FROM,
-    to: workerEmail,
+    to: resolveRecipient(workerEmail),
     subject: `Nueva solicitud de servicio — ${clientName}`,
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px">
@@ -82,7 +83,7 @@ export async function sendRequestAcceptedEmail({
 
   await resend.emails.send({
     from: FROM,
-    to: clientEmail,
+    to: resolveRecipient(clientEmail),
     subject: `✅ Tu solicitud fue aceptada — ${workerName}`,
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px">
@@ -121,7 +122,7 @@ export async function sendRequestRejectedEmail({
 }) {
   await resend.emails.send({
     from: FROM,
-    to: clientEmail,
+    to: resolveRecipient(clientEmail),
     subject: `Tu solicitud no pudo ser confirmada`,
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px">
@@ -148,6 +149,10 @@ export async function sendRequestRejectedEmail({
   })
 }
 
+function resolveRecipient(email: string): string {
+  return process.env.RESEND_VERIFIED_DOMAIN ? email : DEV_EMAIL
+}
+
 // ── Email al cliente pidiendo que califique ──
 export async function sendReviewRequestEmail({
   clientEmail,
@@ -162,7 +167,7 @@ export async function sendReviewRequestEmail({
 }) {
   await resend.emails.send({
     from: FROM,
-    to: clientEmail,
+    to: resolveRecipient(clientEmail),
     subject: `¿Cómo te fue con ${workerName}? Dejá tu calificación`,
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px">
